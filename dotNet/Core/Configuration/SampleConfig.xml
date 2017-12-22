@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<SimplicityDaemon>
+	<JniBridgeOptions libPath="" libConfigFilePath="" selectedJvm="" />
+	<JvmOptions jarDropFolder="" />
+	<dotNetOptions hostPort="8080" logFileLocation="c:\Temp\log" useHttps="false" workingFolder="c:\temp\work" enablePerfCounters="true" traceOutputFile="c:\Temp\service_output.log"/>
+</SimplicityDaemon>
