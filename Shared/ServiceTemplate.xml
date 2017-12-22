@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<serviceDefinitionForJar>
+	<namespaces>
+		<![CDATA[
+using System;
+using Autofac;
+using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+using System.Text;
+using System.Threading.Tasks;
+using Simplicity.dotNet.Common.Interop;
+using Simplicity.dotNet.Common.Logic;
+using Simplicity.dotNet.Core.Configuration;
+using Simplicity.dotNet.Core.Interop;
+
+		]]>
+	</namespaces>
+	<jarProxy>
+		<![CDATA[
+			namespace ~NamespaceName~ {
+ [ServiceContract]
+ public interface ~InterfaceName~ {
+    <for_each_method_interface/>
+ }
+				 
+ public class ~ClassNameInJar~ : ~InterfaceName~ {
+    <for_each_method_class/>
+ }
+}
+		]]>
+	</jarProxy>
+</serviceDefinitionForJar>

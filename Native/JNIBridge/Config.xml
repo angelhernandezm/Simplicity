@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+	<appSettings>
+		<key name="jvmOptions" value="-Djava.class.path=%java_home%;C:\Temp\JNIBridge\Inspector.jar" />
+		<key name="jniVersion" value="JNI_VERSION_1_6" />
+		<key name="jvmOptionCount" value="3" />
+		<key name="jvmMaximumHeapSize" value ="-Xmx1g" />
+		<key name="jvmInitialHeapSize" value ="-Xms1m" />
+		<key name="SymLinkLibName" value ="c:\lib" />
+		<key name="SymLinkBinName" value ="c:\bin" />
+		<key name="SymLinkLibTarget" value ="C:\Program Files\Java\jre1.8.0_144\lib" />
+		<key name="SymLinkBinTarget" value ="C:\Program Files\Java\jdk1.8.0_144\jre\bin" />
+	</appSettings>
+</config>

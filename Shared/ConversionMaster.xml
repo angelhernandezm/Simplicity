@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mappings>
+	<!--This section contains equivalences between Java & C# - If statement/keyword is not here it's because they're the same in both languages  -->
+	<translation javaStatement ="boolean" cSharpStatement="bool"/>
+	<translation javaStatement ="Object" cSharpStatement="object"/>
+	<translation javaStatement ="String" cSharpStatement="string"/>
+	<translation javaStatement ="StringBuffer" cSharpStatement="StringBuilder"/>
+	<translation javaStatement ="package" cSharpStatement="namespace"/>
+	<translation javaStatement ="float" cSharpStatement="float"/>
+	<translation javaStatement ="double" cSharpStatement="decimal"/>
+	<translation javaStatement ="int" cSharpStatement="int"/>
+	<translation javaStatement ="void" cSharpStatement="void"/>
+	<translation javaStatement ="char" cSharpStatement="char"/>
+	<translation javaStatement ="java.util.Map" cSharpStatement="Dictionary&lt;object, object&gt;"/>
+	<translation javaStatement ="java.lang.String" cSharpStatement="string"/>
+	<translation javaStatement ="java.lang.Object" cSharpStatement="object"/>
+</mappings>
