@@ -156,14 +156,13 @@ namespace Simplicity.dotNet.Core.Service {
 				NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size
 			};
 
-			Task.Run(async () => await SetUpService()); 
+			SetUpService();
 		}
 
 		/// <summary>
 		/// Sets up service.
 		/// </summary>
-		private Task SetUpService() {
-			return Task.Run(() => {
+		private void SetUpService() {
 				_configurationReader = TypeContainer.Resolve<IConfigurationReader>();
 				_defaultParser = TypeContainer.Resolve<IParser>();
 				_defaultBuilder = TypeContainer.Resolve<IBuilder>();
@@ -176,7 +175,6 @@ namespace Simplicity.dotNet.Core.Service {
 				_messenger.Notify += MessengerNotification;
 				_configFileMonitor.Changed += (s, e) => ReloadAndApplyConfigChanges();
 				Configure();
-			});
 		}
 
 		/// <summary>
@@ -200,6 +198,8 @@ namespace Simplicity.dotNet.Core.Service {
 						  !string.IsNullOrEmpty((single = registration.FirstOrDefault()).Key)) {
 
 						HostManager.ManageHost(Common.Enums.HostAction.StartListening, single.Value.Item1);
+
+						_logger.Log($"New Endpoint registration: {single.Key}");
 					}
 					break;
 				case Common.Enums.MessageType.RemovedRegistration:
@@ -260,16 +260,16 @@ namespace Simplicity.dotNet.Core.Service {
 					await InitializeJniBridge(config);
 
 					// Set up timers (for both housecleaning and JAR file processing) 
+					_mainWatcher = new FileSystemWatcher(config.JvmOptions.jarDropFolder) {
+						EnableRaisingEvents = true,
+						NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size
+					};
+					
 					_tmrProcessFile = new System.Timers.Timer(5000) { Enabled = true };  // Every 5 seconds
 					_tmrHouseKeeping = new System.Timers.Timer(3600000) { Enabled = true }; // Every hour (60 minutes)
 					_tmrProcessFile.Elapsed += (s, e) => ProcessDroppedFileHelper();
 					_tmrHouseKeeping.Elapsed += (s, e) => DoHouseKeeping();
 					_mainWatcher.Changed += (s, e) => ProcessDroppedJarFile(s, e);
-
-					_mainWatcher = new FileSystemWatcher(config.JvmOptions.jarDropFolder) {
-						EnableRaisingEvents = true,
-						NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size
-					};
 				});
 			} catch (Exception ex) {
 				_logger.Log(ex);
@@ -362,7 +362,7 @@ namespace Simplicity.dotNet.Core.Service {
 							alreadyProcessed.Add(item.Key); // Let's mark it as processed
 															// Second step is to extract information on methods in JAR (if this step fails, it's useless to continue)
 
-							if (_jniBridgeManager.SerializeMethodsInJar(item.Value.Key, item.Value.Value).Result.IsSuccess) {
+							if (_jniBridgeManager.SerializeMethodsInJar(item.Value.Key, item.Value.Value).IsSuccess) {
 								// Third step is to extract method metadata information (required to call JNIBridge)
 								var res = javaParserFactory.ExtractJniMethodDefinition(item.Value.Key);
 								_dataService.RemovePreviousRegistrationIfAny(Path.GetFileName(item.Value.Key.Replace(".jar", ".dll")));

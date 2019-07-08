@@ -33,13 +33,13 @@ namespace Simplicity.dotNet.Common.Logic {
 		/// <param name="jarFile">The jar file.</param>
 		/// <param name="xmlPath">The XML path.</param>
 		/// <returns></returns>
-		Task<ExecutionResult> SerializeMethodsInJar(string jarFile, string xmlPath);
+		ExecutionResult SerializeMethodsInJar(string jarFile, string xmlPath);
 
 		/// <summary>
 		/// Invokes the gc.
 		/// </summary>
 		/// <returns></returns>
-		Task<ExecutionResult> InvokeGC();
+		ExecutionResult InvokeGC();
 
 		/// <summary>
 		/// Runs as java pass through.

@@ -5,6 +5,7 @@ using Simplicity.dotNet.Common.Interop;
 using Simplicity.dotNet.Common.Logic;
 using Simplicity.dotNet.Core.Configuration;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.Diagnostics;
@@ -133,19 +134,21 @@ namespace Simplicity.dotNet.Core.Logic {
 		/// <param name="config">The configuration.</param>
 		/// <param name="registration">The registration.</param>
 		/// <returns></returns>
-		private ExecutionResult RegisterLibraryHelper(string jarFile, IConfigurationReader config, Dictionary<string, JniMetadata> registration) {
+		private ExecutionResult RegisterLibraryHelper(string jarFile, IConfigurationReader config,
+			Dictionary<string, JniMetadata> registration) {
 			var r = registration?.ToList();
 			var libraryId = Guid.NewGuid();
 			var retval = ExecutionResult.Empty;
 			var c = (CustomConfigReader)config.Configuration;
 			var assembly = Path.GetFileName(jarFile).Replace(".jar", ".dll");
-			var assemblyLocation = $@"{Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)}\Proxies\{assembly}";
+			var assemblyLocation =
+				$@"{Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)}\Proxies\{assembly}";
 
-			using (var ts = new TransactionScope(TransactionScopeOption.Required)) {
-				// If transaction is closed then we'll open it
-				if (_dataContext.Database.Connection.State == System.Data.ConnectionState.Closed)
-					_dataContext.Database.Connection.Open();
+			// If connection is closed then we'll open it
+			if (_dataContext.Database.Connection.State == System.Data.ConnectionState.Closed)
+				_dataContext.Database.Connection.Open();
 
+			using (var transaction = _dataContext.Database.Connection.BeginTransaction()) {
 				// We first register our proxy assembly
 				_dataContext.DynamicLibrary.Add(new DynamicLibrary() {
 					AssemblyName = assembly,
@@ -157,13 +160,19 @@ namespace Simplicity.dotNet.Core.Logic {
 					RegisteredDate = EpochTime
 				});
 
-				r.ForEach(_ => ProvisionTablesAtRegistration(_, jarFile, assembly, c, libraryId));
-				_dataContext.SaveChanges();
-				ts.Complete();
-				_dataContext.Database.Connection.Close();
+				try {
+					r?.ForEach(_ => ProvisionTablesAtRegistration(_, jarFile, assembly, c, libraryId));
+					_dataContext.SaveChanges();
+					transaction.Commit();
+					retval.IsSuccess = true;
+				} catch (Exception e) {
+					var z = e.Message;
+					transaction.Rollback();
+					retval.IsSuccess = false;
+				} finally {
+					_dataContext.Database.Connection.Close();
+				}
 			}
-
-			retval.IsSuccess = true;
 
 			return retval;
 		}
@@ -192,7 +201,7 @@ namespace Simplicity.dotNet.Core.Logic {
 				ClassName = r.Key,
 				Fk_DynamicLibraryId = libraryId.ToString(),
 				MetadataEntryId = metadataId.ToString(),
-				JavaClassDefinition = r.Value.JavaClassDefinition
+				JavaClassDefinition = r.Value?.JavaClassDefinition
 			});
 
 			methods?.ForEach(_ => _dataContext.JniMethodInformation.Add(new JniMethodInformation() {

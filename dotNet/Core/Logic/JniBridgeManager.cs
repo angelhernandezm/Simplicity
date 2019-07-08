@@ -179,8 +179,7 @@ namespace Simplicity.dotNet.Core.Logic {
 		/// Invokes the gc.
 		/// </summary>
 		/// <returns></returns>
-		public Task<ExecutionResult> InvokeGC() {
-			return Task.Run(() => {	 
+		public ExecutionResult InvokeGC() {
 				IntPtr hProcAddress;
 				var retval = ExecutionResult.Empty;
 
@@ -198,7 +197,6 @@ namespace Simplicity.dotNet.Core.Logic {
 				}
 
 				return retval;
-			});
 		}
 
 		/// <summary>
@@ -235,8 +233,7 @@ namespace Simplicity.dotNet.Core.Logic {
 		/// <param name="jarFile">The jar file.</param>
 		/// <param name="xmlPath">The XML path.</param>
 		/// <returns></returns>
-		public Task<ExecutionResult> SerializeMethodsInJar(string jarFile, string xmlPath) {
-			return Task.Run(() => {
+		public ExecutionResult SerializeMethodsInJar(string jarFile, string xmlPath) {
 				IntPtr hProcAddress;
 				var retval = ExecutionResult.Empty;
 				var exceptions = new StringBuilder(Win32Helper.Max_BufferSizeForMessagesFromJni);
@@ -266,7 +263,6 @@ namespace Simplicity.dotNet.Core.Logic {
 					retval.LastExceptionIfAny = new ArgumentNullException("Unable to proceed if jar file or resulting xml file aren't specified.");
 
 				return retval;
-			});
 		}
 
 		/// <summary>

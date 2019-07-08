@@ -155,8 +155,10 @@ namespace Simplicity.dotNet.Parser.Logic {
 				}
 
 				retval.Tag = _cSharpFileContents;
-				retval.IsSuccess = steps.Count == successCount;
-			} catch (Exception ex) {
+				retval.IsSuccess = true; // Let's parse and process the files we can
+			} catch (Exception ex)
+			{
+				retval.IsSuccess = false;
 				retval.LastExceptionIfAny = ex;
 			}
 

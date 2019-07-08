@@ -165,7 +165,10 @@ namespace Simplicity.dotNet.Builder.Logic {
 		/// <param name="workFolder">The work folder.</param>
 		/// <param name="jarInformationFile">The jar information file.</param>
 		/// <returns></returns>
-		private ExecutionResult BuildProxyAssemblyHelper(Dictionary<string, StringBuilder> codeFiles, string workFolder, string jarInformationFile) {
+		private ExecutionResult BuildProxyAssemblyHelper(Dictionary<string, StringBuilder> codeFiles, string workFolder, string jarInformationFile)
+		{
+			var tryAgain = true;
+			CompilerResults result;
 			var newFiles = new List<string>();
 			var retval = ExecutionResult.Empty;
 			var assemblyName = jarInformationFile.Replace(".xml", ".dll");
@@ -205,7 +208,19 @@ namespace Simplicity.dotNet.Builder.Logic {
 							Assembly.Load(AssemblyName.GetAssemblyName(_));
 					});
 
-					var result = cp.CompileAssemblyFromFile(cParams, newFiles.ToArray());
+
+					// We'll compile those files that were parsed Ok
+					do {
+						result = cp.CompileAssemblyFromFile(cParams, newFiles.ToArray());
+
+						if (result.Errors.Count == 0)
+							tryAgain = false;
+						else {
+							var errors = result.Errors.Cast<CompilerError>();
+							var filesToExclude = newFiles.Where(p => !errors.Any(p2 => string.Equals(p, p2.FileName, StringComparison.OrdinalIgnoreCase)));
+							newFiles = filesToExclude.ToList();
+						}
+					} while (tryAgain);
 
 					// Any errors at compilation?
 					if (result.Errors.Count > 0) {
