@@ -116,7 +116,7 @@ namespace Simplicity.dotNet.Core.Service {
 		/// <summary>
 		/// The files to process
 		/// </summary>
-		private Dictionary<Guid, KeyValuePair<string, string>> _filesToProcess = new Dictionary<Guid, KeyValuePair<string, string>>();
+		private readonly Dictionary<Guid, KeyValuePair<string, string>> _filesToProcess = new Dictionary<Guid, KeyValuePair<string, string>>();
 
 		/// <summary>
 		/// The TMR process file
@@ -131,7 +131,7 @@ namespace Simplicity.dotNet.Core.Service {
 		/// <summary>
 		/// The protect mutex
 		/// </summary>
-		private Mutex _protectMutex = new Mutex();
+		private readonly Mutex _protectMutex = new Mutex();
 
 		/// <summary>
 		/// Gets the service instance.
@@ -155,25 +155,28 @@ namespace Simplicity.dotNet.Core.Service {
 				EnableRaisingEvents = true, Filter = Common.Strings.ConfigFileExtension,
 				NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size
 			};
-			SetUpService();
+
+			Task.Run(async () => await SetUpService()); 
 		}
 
 		/// <summary>
 		/// Sets up service.
 		/// </summary>
-		private void SetUpService() {
-			_configurationReader = TypeContainer.Resolve<IConfigurationReader>();
-			_defaultParser = TypeContainer.Resolve<IParser>();
-			_defaultBuilder = TypeContainer.Resolve<IBuilder>();
-			_dataService = TypeContainer.Resolve<IDataService>();
-			_messenger = TypeContainer.Resolve<IMessenger>();
-			_perfCounters = TypeContainer.Resolve<IPerfCounters>();
-			ExecutionResult.AttachPerfCounters(_perfCounters);
-			ExecutionResult.AttachLogger(_logger);
-			HostManager = TypeContainer.Resolve<IServiceHostManager>();
-			_messenger.Notify += MessengerNotification;
-			_configFileMonitor.Changed += (s, e) => ReloadAndApplyConfigChanges();
-			Configure();
+		private Task SetUpService() {
+			return Task.Run(() => {
+				_configurationReader = TypeContainer.Resolve<IConfigurationReader>();
+				_defaultParser = TypeContainer.Resolve<IParser>();
+				_defaultBuilder = TypeContainer.Resolve<IBuilder>();
+				_dataService = TypeContainer.Resolve<IDataService>();
+				_messenger = TypeContainer.Resolve<IMessenger>();
+				_perfCounters = TypeContainer.Resolve<IPerfCounters>();
+				ExecutionResult.AttachPerfCounters(_perfCounters);
+				ExecutionResult.AttachLogger(_logger);
+				HostManager = TypeContainer.Resolve<IServiceHostManager>();
+				_messenger.Notify += MessengerNotification;
+				_configFileMonitor.Changed += (s, e) => ReloadAndApplyConfigChanges();
+				Configure();
+			});
 		}
 
 		/// <summary>
@@ -207,18 +210,21 @@ namespace Simplicity.dotNet.Core.Service {
 		/// <summary>
 		/// Creates the required folders if required.
 		/// </summary>
-		private void CreateRequiredFoldersIfRequired(CustomConfigReader config) {
-			var folders = new Dictionary<string, string> { {"JarDropFolder", config.JvmOptions.jarDropFolder },
+		private Task CreateRequiredFoldersIfRequired(CustomConfigReader config) {
+			return Task.Run(() => {
+				var folders = new Dictionary<string, string> { {"JarDropFolder", config.JvmOptions.jarDropFolder },
 														   {"LogFileLocation", config.dotNetOptions.logFileLocation},
 														   {"workingFolder", config.dotNetOptions.workingFolder}};
 
-			folders.ToList().ForEach(_ => {
-				if (!string.IsNullOrEmpty(_.Value)) {
-					if (!Directory.Exists(_.Value))
-						Directory.CreateDirectory(_.Value);
-				} else
-					throw new ArgumentNullException($"{_.Key} is missing. Unable to continue.");
+				folders.ToList().ForEach(_ => {
+					if (!string.IsNullOrEmpty(_.Value)) {
+						if (!Directory.Exists(_.Value))
+							Directory.CreateDirectory(_.Value);
+					} else
+						throw new ArgumentNullException($"{_.Key} is missing. Unable to continue.");
+				});
 			});
+
 		}
 
 
@@ -240,36 +246,51 @@ namespace Simplicity.dotNet.Core.Service {
 		private void Configure() {
 			var res = ExecutionResult.Empty;
 
-			try {
-				_mainWatcher?.Dispose();
-				_tmrProcessFile?.Dispose();
-				_tmrHouseKeeping?.Dispose();
-				_tmrProcessFile = new System.Timers.Timer(5000) { Enabled = true };  // Every 5 seconds
-				_tmrHouseKeeping = new System.Timers.Timer(3600000) { Enabled = true }; // Every hour (60 minutes)
-				_tmrProcessFile.Elapsed += (s, e) => ProcessDroppedFileHelper();
-				_tmrHouseKeeping.Elapsed += (s, e) => DoHouseKeeping();
-				var config = (CustomConfigReader)_configurationReader.Configuration;
+			try {	  
+				Task.Run(async () => {
+					// If restarting the service, we'll dispose of resources prior reutilizing them
+					_mainWatcher?.Dispose();
+					_tmrProcessFile?.Dispose();
+					_tmrHouseKeeping?.Dispose();
 
-				_mainWatcher = new FileSystemWatcher(config.JvmOptions.jarDropFolder) {
-					EnableRaisingEvents = true,
-					NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size
-				};
+					// Get configuration settings
+					var config = (CustomConfigReader)_configurationReader.Configuration;
 
-				_mainWatcher.Changed += (s, e) => ProcessDroppedJarFile(s, e);
+					// Initialize JNI Bridge
+					await InitializeJniBridge(config);
 
-				// Let's load JVM and its dependencies on a separate thread
-				new Thread(() => {
-					CreateRequiredFoldersIfRequired(config);
-					res = _jniBridgeManager.LoadJVM(config.JniBridgeOptions.libPath, config.JniBridgeOptions.libConfigFilePath);
-				}).Start();
+					// Set up timers (for both housecleaning and JAR file processing) 
+					_tmrProcessFile = new System.Timers.Timer(5000) { Enabled = true };  // Every 5 seconds
+					_tmrHouseKeeping = new System.Timers.Timer(3600000) { Enabled = true }; // Every hour (60 minutes)
+					_tmrProcessFile.Elapsed += (s, e) => ProcessDroppedFileHelper();
+					_tmrHouseKeeping.Elapsed += (s, e) => DoHouseKeeping();
+					_mainWatcher.Changed += (s, e) => ProcessDroppedJarFile(s, e);
 
-
+					_mainWatcher = new FileSystemWatcher(config.JvmOptions.jarDropFolder) {
+						EnableRaisingEvents = true,
+						NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size
+					};
+				});
 			} catch (Exception ex) {
 				_logger.Log(ex);
 				_logger.Log(Common.Strings.ConfigurationErrorStopServiceMessage);
 				OnStop();
 			}
 		}
+
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="config"></param>
+		/// <returns></returns>
+		private Task InitializeJniBridge(CustomConfigReader config) {
+			return Task.Run(async () => {
+				await CreateRequiredFoldersIfRequired(config);
+				await _jniBridgeManager.LoadJVM(config.JniBridgeOptions.libPath, config.JniBridgeOptions.libConfigFilePath);
+			});
+		}
+
 
 		/// <summary>
 		/// Processes the dropped jar file.
@@ -312,7 +333,7 @@ namespace Simplicity.dotNet.Core.Service {
 				if (Directory.Exists(builder.StaleProxyLocation)) {
 					try {
 						var staleFiles = Directory.GetFiles(builder.StaleProxyLocation);
-						Array.ForEach(staleFiles, x => File.Delete(x));
+						Array.ForEach(staleFiles, File.Delete);
 					} catch {
 						// Safe to ignore exception here 
 					}
@@ -326,7 +347,7 @@ namespace Simplicity.dotNet.Core.Service {
 		private void ProcessDroppedFileHelper() {
 			var buffer = string.Empty;
 			var alreadyProcessed = new List<Guid>();
-			ExecutionResult result = ExecutionResult.Empty;
+			var result = ExecutionResult.Empty;
 			var config = (CustomConfigReader)_configurationReader.Configuration;
 
 			if (_filesToProcess.Count > 0) {
@@ -340,7 +361,8 @@ namespace Simplicity.dotNet.Core.Service {
 							result = _jniBridgeManager.AddPath(item.Value.Key, ref buffer);
 							alreadyProcessed.Add(item.Key); // Let's mark it as processed
 															// Second step is to extract information on methods in JAR (if this step fails, it's useless to continue)
-							if (_jniBridgeManager.SerializeMethodsInJar(item.Value.Key, item.Value.Value).IsSuccess) {
+
+							if (_jniBridgeManager.SerializeMethodsInJar(item.Value.Key, item.Value.Value).Result.IsSuccess) {
 								// Third step is to extract method metadata information (required to call JNIBridge)
 								var res = javaParserFactory.ExtractJniMethodDefinition(item.Value.Key);
 								_dataService.RemovePreviousRegistrationIfAny(Path.GetFileName(item.Value.Key.Replace(".jar", ".dll")));
@@ -391,7 +413,7 @@ namespace Simplicity.dotNet.Core.Service {
 			_configurationReader = TypeContainer.Resolve<IConfigurationReader>();
 			_jniBridgeManager = TypeContainer.Resolve<IJniBridgeManager>();
 		}
-
+						 
 
 		/// <summary>
 		/// Releases unmanaged and - optionally - managed resources.
@@ -417,7 +439,7 @@ namespace Simplicity.dotNet.Core.Service {
 
 				// Let's dispose of service hosts (if any)
 				var hosts = HostManager?.DynamicHosts?.ToList();
-				hosts.ForEach(_ => _.Value?.Close());
+				hosts?.ForEach(_ => _.Value?.Close());
 			}
 			base.Dispose(disposing);
 		}

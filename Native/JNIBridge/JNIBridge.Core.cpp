@@ -9,7 +9,28 @@ using namespace JNIBridge::Core::Utils;
 /// </summary>
 JNIBridge::Core::Interop* g_Singleton;
 
+typedef jint(*ptrLoadJvm) (JavaVM** pvm, void** penv, void* args);
+
 #pragma region "Generic lambdas"
+
+auto dynamicallyLoadJvm = [&](JavaVM** pvm, void** penv, void* args, std::wstring selectedJvm) -> jint {
+	auto retval = 0;
+	ptrLoadJvm loadJvm;
+	HINSTANCE hInstance;
+
+	if ((hInstance = LoadLibrary(selectedJvm.c_str())) != nullptr)  {
+		if ((loadJvm = (ptrLoadJvm)GetProcAddress(hInstance, "JNI_CreateJavaVM")) != nullptr) {
+			retval = loadJvm(pvm, penv, args);
+		}
+		FreeLibrary(hInstance);
+	}
+	
+
+	  
+// auto jvm = JNI_CreateJavaVM(&m_JavaVm, (void**)&env, &initArgs);
+
+	return retval;
+};
 
 /// <summary>
 /// The get jni versionfrom string
@@ -209,6 +230,7 @@ bool JNIBridge::Core::Interop::InitializeJvm(const char* configFile) {
 	JavaVMInitArgs initArgs;
 	m_configReader.ReadConfig(configFile);
 	unique_ptr<JavaVMOption[]> javaVmOption;
+	auto selectedJvm = m_configReader.GetSetting(L"SelectedJvm");
 
 	auto formatJarPathFromVector = [&](std::vector<std::wstring> jars) -> std::wstring {
 		std::wstring jarPath;
@@ -236,7 +258,7 @@ bool JNIBridge::Core::Interop::InitializeJvm(const char* configFile) {
 	initArgs.ignoreUnrecognized = JNI_TRUE;
 
 	try {
-		auto jvm = JNI_CreateJavaVM(&m_JavaVm, (void**)&env, &initArgs);
+		auto jvm = dynamicallyLoadJvm(&m_JavaVm, (void**)&env, &initArgs, selectedJvm);
 		retval = jvm == JNI_OK;
 	}
 	catch (exception &ex) {

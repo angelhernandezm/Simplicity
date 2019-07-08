@@ -26,7 +26,7 @@
     <SccAuxPath>SAK</SccAuxPath>
     <SccLocalPath>SAK</SccLocalPath>
     <SccProvider>SAK</SccProvider>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.14393.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -76,6 +76,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <PostBuildEventUseInBuild>true</PostBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -120,10 +121,16 @@ XCOPY "Config.xml" "c:\temp\JNIBridge" /R /Y</Command>
     </Link>
     <PostBuildEvent>
       <Command>XCOPY "..\..\Java\TestJar\SimpleCalc.jar" "..\..\x64\Debug" /R /Y
+
 XCOPY "Config.xml" "..\..\x64\Debug" /R /Y
-REM If Not Exists C:\Temp\JNIBridge MD C:\Temp\JNIBridge
+
+REM If Not Exists C:\Temp\JNIBridge 
+MD C:\Temp\JNIBridge
+
 XCOPY "$(TargetPath)" "c:\temp\JNIBridge" /R /Y 
-XCOPY "..\..\Java\TestJar\SimpleCalc.jar" "c:\temp\JNIBridge" /R /Y 
+
+XCOPY "..\..\Java\TestJar\SimpleCalc.jar" "c:\temp\JNIBridge" /R /Y
+
 XCOPY "Config.xml" "c:\temp\JNIBridge" /R /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

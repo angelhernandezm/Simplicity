@@ -3,3 +3,25 @@
 ################################################################################
 
 /.vs/Simplicity/v15
+/dotNet/Builder
+/dotNet/Common/bin
+/dotNet/Common/obj
+/dotNet/Common/Simplicity.dotNet.Common.csproj.user
+/dotNet/Core/bin
+/dotNet/Core/obj
+/dotNet/Core/Simplicity.dotNet.Core.csproj.user
+/dotNet/Daemon/bin
+/dotNet/Daemon/obj
+/dotNet/Parser/bin
+/dotNet/Parser/obj
+/dotNet/TestClient/TestClient/bin/Debug
+/dotNet/TestClient/TestClient/obj/Debug
+/Java/Inspector/.idea
+/Native/JNIBridge/x64/Debug
+/Native/Tests/x64/Debug
+/Native/x64/Debug
+/packages
+/x64/Debug
+/Native/Tests/JNIBridge_Tests.vcxproj.user
+/dotNet/Parser/Simplicity.dotNet.Parser.csproj.user
+/dotNet/Daemon/Simplicity.dotNet.Daemon.csproj.user

@@ -17,7 +17,7 @@ namespace Simplicity.dotNet.Common.Logic {
 		/// <param name="JniBridgeLibraryPath">The jni bridge library path.</param>
 		/// <param name="jniBridgeLibConfigPath">The jni bridge library configuration path.</param>
 		/// <returns></returns>
-		ExecutionResult LoadJVM(string JniBridgeLibraryPath, string jniBridgeLibConfigPath);
+		Task<ExecutionResult> LoadJVM(string JniBridgeLibraryPath, string jniBridgeLibConfigPath);
 
 		/// <summary>
 		/// Adds the path.
@@ -33,13 +33,13 @@ namespace Simplicity.dotNet.Common.Logic {
 		/// <param name="jarFile">The jar file.</param>
 		/// <param name="xmlPath">The XML path.</param>
 		/// <returns></returns>
-		ExecutionResult SerializeMethodsInJar(string jarFile, string xmlPath);
+		Task<ExecutionResult> SerializeMethodsInJar(string jarFile, string xmlPath);
 
 		/// <summary>
 		/// Invokes the gc.
 		/// </summary>
 		/// <returns></returns>
-		ExecutionResult InvokeGC();
+		Task<ExecutionResult> InvokeGC();
 
 		/// <summary>
 		/// Runs as java pass through.
