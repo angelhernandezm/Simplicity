@@ -7,11 +7,13 @@ using Simplicity.dotNet.Core.Configuration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Data.SQLite;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -99,25 +101,33 @@ namespace Simplicity.dotNet.Core.Logic {
 		/// </returns>
 		public ExecutionResult GetDynamicLibraries(string assemblyName = "") {
 			var retval = ExecutionResult.Empty;
-			var registration = new Dictionary<string, Tuple<IEntity, IEntity, IEntity>>();
+			var cb = new ConcurrentDictionary<string, List<Tuple<IEntity, IEntity, IEntity>>>();
 
-			var query = (from x in _dataContext.DynamicLibrary.ToList()
-						 join z in _dataContext.HostedLibrary.ToList()
-						 on x.LibraryId equals z.Fk_DynamicLibraryId
+			var query = (from z in _dataContext.HostedLibrary.ToList()
 						 join y in _dataContext.JavaClassMetadata.ToList()
-						 on x.LibraryId equals y.Fk_DynamicLibraryId
+							 on z.Fk_DynamicLibraryId equals y.Fk_DynamicLibraryId
+						 join x in _dataContext.DynamicLibrary.ToList()
+							 on z.Fk_DynamicLibraryId equals x.LibraryId
 						 select new {
-							 Library = x,
 							 Uri = z,
-							 Class = y
+							 Class = y,
+							 Library = x
 						 }).Where(p => !string.IsNullOrEmpty(assemblyName) ?
-										string.Equals(p.Library.AssemblyName, assemblyName, StringComparison.OrdinalIgnoreCase) :
-										!string.IsNullOrEmpty(p.Library.AssemblyName)).ToList();
+					string.Equals(p.Library.AssemblyName, assemblyName, StringComparison.OrdinalIgnoreCase) :
+					!string.IsNullOrEmpty(p.Library.AssemblyName)).AsParallel().ToList();
 
-			query.ForEach(r => {
-				if (!registration.ContainsKey(r.Library.AssemblyName))
-					registration.Add(r.Library.AssemblyName, new Tuple<IEntity, IEntity, IEntity>(r.Library, r.Uri, r.Class));
+			Parallel.ForEach(query, r => {
+				if (!cb.ContainsKey(r.Library.AssemblyName))
+					cb.TryAdd(r.Library.AssemblyName,
+						new List<Tuple<IEntity, IEntity, IEntity>>  {
+							new Tuple<IEntity, IEntity, IEntity>(r.Library, r.Uri, r.Class)
+						});
+				else
+					cb[r.Library.AssemblyName].Add(new Tuple<IEntity, IEntity, IEntity>(r.Library, r.Uri, r.Class));
 			});
+
+			var registration = cb.ToDictionary(e => e.Key, e => e.Value);
+
 
 			retval.Tag = registration;
 			retval.IsSuccess = registration.Count > 0;

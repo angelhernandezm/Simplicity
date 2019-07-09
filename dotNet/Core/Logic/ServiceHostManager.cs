@@ -73,30 +73,22 @@ namespace Simplicity.dotNet.Core.Logic {
 		/// <param name="host">The host.</param>
 		/// <returns>Collection of errors encountered.</returns>
 		public IEnumerable<ExecutionResult> ManageHost(HostAction action, IEntity host = null) {
-			DynamicLibrary library;
 			var retval = new List<ExecutionResult>();
-			KeyValuePair<string, Tuple<IEntity, IEntity, IEntity>> single;
-			Dictionary<string, Tuple<IEntity, IEntity, IEntity>> registration;
-			var libraries = new Dictionary<string, Tuple<IEntity, IEntity, IEntity>>();
+			List<KeyValuePair<string, List<Tuple<IEntity, IEntity, IEntity>>>> registration;
+
+			System.Diagnostics.Debugger.Launch();
 
 			try {
 				// Do we have to process one library or all of them?
-				library = host as DynamicLibrary;
+				var library = host as DynamicLibrary;
 				var result = _dataService.GetDynamicLibraries(library?.AssemblyName);
 
-				if (result.IsSuccess && (registration = result.Tag as
-						 Dictionary<string, Tuple<IEntity, IEntity, IEntity>>) != null) {
-
-					if (!string.IsNullOrEmpty((single = registration.FirstOrDefault()).Key))
-						libraries.Add(single.Key, single.Value);
-					else {
-						var allRegistrations = registration.ToList();
-						allRegistrations.ForEach(r => libraries.Add(r.Key, r.Value));
-					}
-					retval.AddRange(ManageHostHelper(action, libraries.ToList()));
+				if (result.IsSuccess && (registration = (result.Tag as
+						 Dictionary<string,  List<Tuple<IEntity, IEntity, IEntity>>>)?.ToList()) != null) {
+					retval.AddRange(ManageHostHelper(action, registration));
 				}
 			} catch (Exception e) {
-				retval.Add(new ExecutionResult() { LastExceptionIfAny = e });
+				retval.Add(new ExecutionResult { LastExceptionIfAny = e });
 			}
 
 			return retval;
@@ -119,7 +111,9 @@ namespace Simplicity.dotNet.Core.Logic {
 				var asm = Assembly.LoadFrom(((DynamicLibrary)selectedLibrary.Item1).AssemblyLocation);
 				var concrete = asm.GetTypes().FirstOrDefault(t => string.Equals(t.FullName, className, StringComparison.OrdinalIgnoreCase));
 				var definition = asm.GetTypes().FirstOrDefault(t => string.Equals(t.FullName, interfaceName, StringComparison.OrdinalIgnoreCase));
-				retval = Tuple.Create(concrete, definition);
+
+				if (concrete != null && definition != null)
+					retval = Tuple.Create(concrete, definition);
 			} catch {
 				// Safe to swallow exception here because we'll use
 				// return value as error or success condition
@@ -134,67 +128,89 @@ namespace Simplicity.dotNet.Core.Logic {
 		/// <param name="action">The action.</param>
 		/// <param name="allRegistrations">All registrations.</param>
 		/// <returns></returns>
-		private IEnumerable<ExecutionResult> ManageHostHelper(HostAction action, List<KeyValuePair<string, Tuple<IEntity, IEntity, IEntity>>> allRegistrations) {
+		private IEnumerable<ExecutionResult> ManageHostHelper(HostAction action, List<KeyValuePair<string, List<Tuple<IEntity, IEntity, IEntity>>>> allRegistrations) {
 			Tuple<IEntity, IEntity, IEntity> selected;
 			var retval = new List<ExecutionResult>();
 			var config = (CustomConfigReader)_configuration.Configuration;
 			var baseAddress = $"http://{Environment.MachineName}:{config.dotNetOptions.hostPort}";
 
-			foreach (var r in allRegistrations) {
-				try {
-					selected = r.Value;
-					var buffer = string.Empty;
-					ServiceHost newHost = null;
-					Tuple<Type, Type> hostType = null;
-					ServiceConfiguration svcConfig = null;
-					var hosting = (HostedLibrary)selected.Item2;
-					var metadata = (JavaClassMetadata)selected.Item3;
-					var selectedLibrary = (DynamicLibrary)selected.Item1;
-					// Let's load specified Jar (if it's not loaded)
-					 _jniBridgeManager.AddPath(selectedLibrary.JarFileLocation, ref buffer);
+			allRegistrations.ForEach(r => {
+				Parallel.ForEach(r.Value, z => {
+					try {
 
-					if ((hostType = GetDynamicProxyType(selected)) != null) {
-						var address = string.Concat(baseAddress, hosting.LibraryURI);
-						// Let's instantiate our ServiceHost
-						newHost = new ServiceHost(hostType.Item1, new Uri[] { new Uri(address) });
-						// Let's configure the service
-						var svc = svcConfig.Create(ref newHost);
-						var se = new ServiceEndpoint(ContractDescription.GetContract(hostType.Item2),
-														   new BasicHttpBinding(), new EndpointAddress(new Uri(address)));
-						svc?.AddServiceEndpoint(se);
-						svc?.Description.Behaviors.Add(new ServiceMetadataBehavior { HttpGetEnabled = true });
+						selected = InitializeServiceHost(z, baseAddress, out var newHost, out var metadata, out var selectedLibrary);
 
-						// If debug is not enabled, we'll enable it
-						if (svc?.Description.Behaviors.FirstOrDefault(p => p.GetType() == typeof(ServiceDebugBehavior)) == null)
-							svc?.Description.Behaviors.Add(new ServiceDebugBehavior { IncludeExceptionDetailInFaults = true });
-					} else  // If we couldn't load dynamic library, we just skip processing the offending library
-						throw new NullReferenceException("Type for ServiceHost couldn't be created. Unable to continue.");
+						// Let's see if DynamicHosts already has a ServiceHost for the selected library
+						var found = DynamicHosts.FirstOrDefault(p => string.Equals(p.Value?.Description?.ConfigurationName?.Replace("_", "."), metadata.ClassName));
 
-					// Let's see if DynamicHosts already has a ServiceHost for the selected library
-					var found = DynamicHosts.FirstOrDefault(p => string.Equals(p.Value?.Description?.ConfigurationName?.Replace("_", "."), metadata.ClassName));
-
-					// Should we start listening or stop our ServiceHost?
-					if (action == HostAction.StartListening) {
-						if (found.Key != null && DynamicHosts.ContainsKey(found.Key)) {
-							DynamicHosts[found.Key].Close();
-							DynamicHosts[found.Key] = newHost;
+						// Should we start listening or stop our ServiceHost?
+						if (action == HostAction.StartListening) {
+							if (found.Key != null && DynamicHosts.ContainsKey(found.Key)) {
+								DynamicHosts[found.Key].Close();
+								DynamicHosts[found.Key] = newHost;
+							} else {
+								DynamicHosts.Add(selectedLibrary, newHost);
+							}
+							DynamicHosts[found.Key ?? selectedLibrary].Open();
 						} else {
-							DynamicHosts.Add(selectedLibrary, newHost);
+							var key = found.Key ?? selectedLibrary;
+							if (DynamicHosts.ContainsKey(key)) {
+								DynamicHosts[key].Close();
+								DynamicHosts.Remove(key);
+							}
 						}
-						DynamicHosts[found.Key ?? selectedLibrary].Open();
-					} else {
-						var key = found.Key ?? selectedLibrary;
-						if (DynamicHosts.ContainsKey(key)) {
-							DynamicHosts[key].Close();
-							DynamicHosts.Remove(key);
-						}
+					} catch (Exception e) {
+						retval.Add(new ExecutionResult { LastExceptionIfAny = e });
 					}
-				} catch (Exception e) {
-					retval.Add(new ExecutionResult() { LastExceptionIfAny = e });
-				}
-			}
+				});
+
+			});
 
 			return retval;
+		}
+
+		/// <summary>
+		/// Initializes the service host.
+		/// </summary>
+		/// <param name="z">The z.</param>
+		/// <param name="baseAddress">The base address.</param>
+		/// <param name="newHost">The new host.</param>
+		/// <param name="metadata">The metadata.</param>
+		/// <param name="selectedLibrary">The selected library.</param>
+		/// <returns></returns>
+		/// <exception cref="NullReferenceException">Type for ServiceHost couldn't be created. Unable to continue.</exception>
+		private Tuple<IEntity, IEntity, IEntity> InitializeServiceHost(Tuple<IEntity, IEntity, IEntity> z, string baseAddress, out ServiceHost newHost,
+			out JavaClassMetadata metadata, out DynamicLibrary selectedLibrary) {
+			newHost = null;
+			var selected = z;
+			var buffer = string.Empty;
+			Tuple<Type, Type> hostType = null;
+			ServiceConfiguration svcConfig = null;
+			var hosting = (HostedLibrary)selected.Item2;
+			metadata = (JavaClassMetadata)selected.Item3;
+			selectedLibrary = (DynamicLibrary)selected.Item1;
+			// Let's load specified Jar (if it's not loaded)
+			_jniBridgeManager.AddPath(selectedLibrary.JarFileLocation, ref buffer);
+
+			if ((hostType = GetDynamicProxyType(selected)) != null) {
+				var address = string.Concat(baseAddress, hosting.LibraryURI);
+				// Let's instantiate our ServiceHost
+				newHost = new ServiceHost(hostType.Item1, new Uri[] { new Uri(address) });
+				// Let's configure the service
+
+				var svc = svcConfig.Create(ref newHost);
+				var se = new ServiceEndpoint(ContractDescription.GetContract(hostType.Item2),
+					new BasicHttpBinding(), new EndpointAddress(new Uri(address)));
+				svc?.AddServiceEndpoint(se);
+				svc?.Description.Behaviors.Add(new ServiceMetadataBehavior { HttpGetEnabled = true });
+
+				// If debug is not enabled, we'll enable it
+				if (svc?.Description.Behaviors.FirstOrDefault(p => p.GetType() == typeof(ServiceDebugBehavior)) == null)
+					svc?.Description.Behaviors.Add(new ServiceDebugBehavior { IncludeExceptionDetailInFaults = true });
+			} else // If we couldn't load dynamic library, we just skip processing the offending library
+				throw new NullReferenceException("Type for ServiceHost couldn't be created. Unable to continue.");
+
+			return selected;
 		}
 	}
 }
