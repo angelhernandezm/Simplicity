@@ -144,7 +144,7 @@ namespace Simplicity.dotNet.Builder.Logic {
 				File.Delete(jarInformationFile);
 
 				// Let's remove all source code files (codegen)
-				codeFiles.ForEach(_ => File.Delete(_));
+				codeFiles.ForEach(File.Delete);
 
 				// Finally, we'll remove any temp file that were created
 				deleteTempFiles();

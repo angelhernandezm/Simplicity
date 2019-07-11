@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.Text;
@@ -138,10 +139,11 @@ namespace Simplicity.dotNet.Core.Logic {
 				Parallel.ForEach(r.Value, z => {
 					try {
 
-						selected = InitializeServiceHost(z, baseAddress, out var newHost, out var metadata, out var selectedLibrary);
+						selected = InitializeServiceHost(z, baseAddress, out var newHost, out var metadata,	 out var selectedLibrary);
 
 						// Let's see if DynamicHosts already has a ServiceHost for the selected library
-						var found = DynamicHosts.FirstOrDefault(p => string.Equals(p.Value?.Description?.ConfigurationName?.Replace("_", "."), metadata.ClassName));
+						var found = DynamicHosts.FirstOrDefault(p => string.Equals(p.Value?.Description?.ConfigurationName?
+															   .Replace("_", "."), metadata.ClassName));
 
 						// Should we start listening or stop our ServiceHost?
 						if (action == HostAction.StartListening) {
@@ -159,6 +161,13 @@ namespace Simplicity.dotNet.Core.Logic {
 								DynamicHosts.Remove(key);
 							}
 						}
+					} catch (NullReferenceException e) {
+						// If Service couldn't be activated we'll remove it from Database. It's most likely due to a method that
+						// wasn't compiled properly when proxy assembly was produced.
+						Task.Run(async () => await _dataService.RemoveFaultyService(z));
+					} catch (InvalidOperationException e) {
+						// Similar to above (ContractDescription has zero operations)
+						Task.Run(async () => await _dataService.RemoveFaultyService(z));
 					} catch (Exception e) {
 						retval.Add(new ExecutionResult { LastExceptionIfAny = e });
 					}
@@ -185,20 +194,20 @@ namespace Simplicity.dotNet.Core.Logic {
 			var selected = z;
 			var buffer = string.Empty;
 			Tuple<Type, Type> hostType = null;
-			ServiceConfiguration svcConfig = null;
 			var hosting = (HostedLibrary)selected.Item2;
 			metadata = (JavaClassMetadata)selected.Item3;
 			selectedLibrary = (DynamicLibrary)selected.Item1;
+
 			// Let's load specified Jar (if it's not loaded)
 			_jniBridgeManager.AddPath(selectedLibrary.JarFileLocation, ref buffer);
 
 			if ((hostType = GetDynamicProxyType(selected)) != null) {
 				var address = string.Concat(baseAddress, hosting.LibraryURI);
 				// Let's instantiate our ServiceHost
-				newHost = new ServiceHost(hostType.Item1, new Uri[] { new Uri(address) });
+				newHost = new ServiceHost(hostType.Item1, new Uri[]  {new Uri(address) });
+				var svcConfig = FormatterServices.GetSafeUninitializedObject(typeof(ServiceConfiguration)) as ServiceConfiguration;
 				// Let's configure the service
-
-				var svc = svcConfig.Create(ref newHost);
+				var svc = svcConfig?.Create(ref newHost);
 				var se = new ServiceEndpoint(ContractDescription.GetContract(hostType.Item2),
 					new BasicHttpBinding(), new EndpointAddress(new Uri(address)));
 				svc?.AddServiceEndpoint(se);

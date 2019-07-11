@@ -252,7 +252,7 @@ namespace Simplicity.dotNet.Parser.Logic {
 			var retval = new StringBuilder(line);
 			var methodStubs = new StringBuilder();
 			var classPos = clazz.Value.LastIndexOf('.') + 1;
-			var clazzname = clazz.Value.Substring(classPos);
+			var clazzname = clazz.Value.Substring(classPos).Replace("$", string.Empty);    // This is valid in Java ($)
 			var origNameSpc = clazz.Value.Substring(0, classPos - 1);
 			var namespc = origNameSpc.Replace('.', '_');
 			var interfaceName = $"I{clazzname}";

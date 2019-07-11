@@ -71,5 +71,12 @@ namespace Simplicity.dotNet.Common.Logic {
 		/// <param name="argList">The argument list.</param>
 		/// <returns>ExecutionResult that contains a Tuple[[IEntity, IEntity, IEntity]] with information required to call method through JNI.</returns>
 		ExecutionResult GetMethodInformationForJniCall(Type service, StackFrame callingFrame, params object[] argList);
+
+		/// <summary>
+		/// Removes the faulty service.
+		/// </summary>
+		/// <param name="service">The service.</param>
+		/// <returns></returns>
+		Task<ExecutionResult> RemoveFaultyService(Tuple<IEntity, IEntity, IEntity> service);
 	}
 }

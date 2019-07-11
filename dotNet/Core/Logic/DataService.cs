@@ -135,8 +135,6 @@ namespace Simplicity.dotNet.Core.Logic {
 			return retval;
 		}
 
-
-
 		/// <summary>
 		/// Registers the library helper.
 		/// </summary>
@@ -175,8 +173,7 @@ namespace Simplicity.dotNet.Core.Logic {
 					_dataContext.SaveChanges();
 					transaction.Commit();
 					retval.IsSuccess = true;
-				} catch (Exception e) {
-					var z = e.Message;
+				} catch  {
 					transaction.Rollback();
 					retval.IsSuccess = false;
 				} finally {
@@ -185,6 +182,22 @@ namespace Simplicity.dotNet.Core.Logic {
 			}
 
 			return retval;
+		}
+
+		/// <summary>
+		/// Removes the faulty service.
+		/// </summary>
+		/// <param name="service">The service.</param>
+		/// <returns></returns>
+		public Task<ExecutionResult> RemoveFaultyService(Tuple<IEntity, IEntity, IEntity> service) {
+			return Task.Run(() => {
+				var retval = ExecutionResult.Empty;
+
+				//TODO: Working here!!! (remove related records)
+				//_dataContext.JniMethodInformation.RemoveRange(_dataContext.JniMethodInformation.Where(r => r.))
+
+				return retval;
+			});
 		}
 
 		/// <summary>
@@ -204,11 +217,11 @@ namespace Simplicity.dotNet.Core.Logic {
 			_dataContext.HostedLibrary.Add(new HostedLibrary() {
 				Fk_DynamicLibraryId = libraryId.ToString(),
 				HostedLibraryId = hostedLibrary.ToString(),
-				LibraryURI = $"/{clazz}"
+				LibraryURI = $"/{clazz.Replace("$", string.Empty)}"   // This is valid in Java ($)
 			});
 
 			_dataContext.JavaClassMetadata.Add(new JavaClassMetadata() {
-				ClassName = r.Key,
+				ClassName = r.Key.Replace("$", string.Empty),        // This is valid in Java ($)
 				Fk_DynamicLibraryId = libraryId.ToString(),
 				MetadataEntryId = metadataId.ToString(),
 				JavaClassDefinition = r.Value?.JavaClassDefinition
