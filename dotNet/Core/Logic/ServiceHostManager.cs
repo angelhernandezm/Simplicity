@@ -77,8 +77,6 @@ namespace Simplicity.dotNet.Core.Logic {
 			var retval = new List<ExecutionResult>();
 			List<KeyValuePair<string, List<Tuple<IEntity, IEntity, IEntity>>>> registration;
 
-			System.Diagnostics.Debugger.Launch();
-
 			try {
 				// Do we have to process one library or all of them?
 				var library = host as DynamicLibrary;

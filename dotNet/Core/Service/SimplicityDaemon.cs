@@ -184,8 +184,8 @@ namespace Simplicity.dotNet.Core.Service {
 		/// <param name="type">The type.</param>
 		/// <param name="data">The data.</param>
 		private void MessengerNotification(object sender, Common.Enums.MessageType type, object data) {
-			KeyValuePair<string, Tuple<IEntity, IEntity, IEntity>> single;
-			Dictionary<string, Tuple<IEntity, IEntity, IEntity>> registration;
+			KeyValuePair<string, List<Tuple<IEntity, IEntity, IEntity>>> single;
+			Dictionary<string, List<Tuple<IEntity, IEntity, IEntity>>> registration;
 
 			switch (type) {
 				case Common.Enums.MessageType.General:
@@ -194,10 +194,10 @@ namespace Simplicity.dotNet.Core.Service {
 					var result = _dataService.GetDynamicLibraries(Path.GetFileName(data.ToString()));
 
 					if (result.IsSuccess && (registration = result.Tag as
-						 Dictionary<string, Tuple<IEntity, IEntity, IEntity>>) != null &&
+						 Dictionary<string, List<Tuple<IEntity, IEntity, IEntity>>>) != null &&
 						  !string.IsNullOrEmpty((single = registration.FirstOrDefault()).Key)) {
 
-						HostManager.ManageHost(Common.Enums.HostAction.StartListening, single.Value.Item1);
+						HostManager.ManageHost(Common.Enums.HostAction.StartListening, single.Value.FirstOrDefault()?.Item1);
 
 						_logger.Log($"New Endpoint registration: {single.Key}");
 					}

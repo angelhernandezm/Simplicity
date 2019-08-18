@@ -135,6 +135,7 @@
   </Target>
   <PropertyGroup>
     <PostBuildEvent>XCOPY "$(TargetDir)*.exe" "c:\Simplicity" /R /Y
+XCOPY "$(TargetDir)*.dll" "c:\Simplicity" /R /Y
 XCOPY "$(TargetDir)*.pdb" "c:\Simplicity" /R /Y
 XCOPY "$(TargetDir)*.config" "c:\Simplicity" /R /Y</PostBuildEvent>
   </PropertyGroup>
