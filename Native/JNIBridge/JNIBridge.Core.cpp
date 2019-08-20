@@ -546,8 +546,13 @@ JNIBRIDGE_API HRESULT RunMethodInJar(const char* className, const char* methodNa
 
 			// Let's get exception details (if any)
 			JNIBridge::Core::Interop::CheckForExceptionsInJvm(env, exceptionsThrown);
-			auto exceptionAsStr = formatExceptionsAsString(exceptionsThrown);
-			strcpy_s(exceptions, sizeof(char[Max_BufferSizeForMessagesFromJni]), exceptionAsStr.c_str());
+
+			// If exceptions were thrown, we'll copy string into exceptions (reference parameter)
+			if (exceptionsThrown.size() > 0) {
+				auto exceptionAsStr = formatExceptionsAsString(exceptionsThrown);
+				strcpy_s(exceptions, sizeof(char[Max_BufferSizeForMessagesFromJni]), exceptionAsStr.c_str());
+			}
+			
 			retval = exceptionsThrown.size() == 0 ? S_OK : S_FALSE;
 
 			// Return result to CLR via a callback
@@ -630,8 +635,12 @@ JNIBRIDGE_API HRESULT SerializeMethodsInJar(const char* jarFile, const char* xml
 			method = env->GetMethodID(clazz, "serializeReflectedMethods", "(Ljava/util/Map;Ljava/lang/String;)Z");
 			retval = (jboolean)env->CallObjectMethod(object, method, res, jFile) == 1 ? S_OK : S_FALSE;
 			JNIBridge::Core::Interop::CheckForExceptionsInJvm(env, exceptionsThrown);
-			auto exceptionAsStr = formatExceptionsAsString(exceptionsThrown);
-			strcpy_s(exceptions, sizeof(char[Max_BufferSizeForMessagesFromJni]), exceptionAsStr.c_str());
+			
+			// If exceptions were thrown, we'll copy string into exceptions (reference parameter)
+			if (exceptionsThrown.size() > 0) {
+				auto exceptionAsStr = formatExceptionsAsString(exceptionsThrown);
+				strcpy_s(exceptions, sizeof(char[Max_BufferSizeForMessagesFromJni]), exceptionAsStr.c_str());
+			}
 
 			// Release JNI resources
 			env->DeleteLocalRef(res);
@@ -674,8 +683,13 @@ JNIBRIDGE_API HRESULT AddPath(const char* jarFile, char* result, char* exception
 			auto resLength = strlen(val);
 			strcpy_s(result, sizeof(char[MAX_PATH]), val);
 			JNIBridge::Core::Interop::CheckForExceptionsInJvm(env, exceptionsThrown);
-			auto exceptionAsStr = formatExceptionsAsString(exceptionsThrown);
-			strcpy_s(exceptions, sizeof(char[Max_BufferSizeForMessagesFromJni]), exceptionAsStr.c_str());
+
+			// If exceptions were thrown, we'll copy string into exceptions (reference parameter)
+			if (exceptionsThrown.size() > 0) {
+				auto exceptionAsStr = formatExceptionsAsString(exceptionsThrown);
+				strcpy_s(exceptions, sizeof(char[Max_BufferSizeForMessagesFromJni]), exceptionAsStr.c_str());
+			}
+
 
 			// Release JNI resources
 			env->ReleaseStringUTFChars(jFile, val);

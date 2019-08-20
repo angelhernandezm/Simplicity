@@ -80,7 +80,7 @@ public:
 					retval = jvmLoadCallback(ConfigFile);
 					Assert::IsTrue(SUCCEEDED(retval));
 					if ((addPathCallback = (ptrAddPath)GetProcAddress(hInstance, "AddPath")) != nullptr) {
-						retval = addPathCallback("c:\\Somepath\\MyJarFile.jar", buffer);
+						retval = addPathCallback("C:\\Temp\\JNIBridge\\SimpleCalc.jar", buffer);
 						Assert::IsTrue(SUCCEEDED(retval));
 					}
 					(ptrShutdownJvm)GetProcAddress(hInstance, "ShutdownJvm")();

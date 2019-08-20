@@ -12,7 +12,7 @@
 
 // TODO: reference additional headers your program requires here
 
-#define JavaVMLib L"c:\\Temp\\JNIBridge\\jvm.dll"
+#define JavaVMLib L"C:\\bin\\server\\jvm.dll"
 #define ConfigFile "c:\\Temp\\JNIBridge\\Config.xml"
 #define JNIBridgeLib L"c:\\Temp\\JNIBridge\\JNIBridge.dll"
 
